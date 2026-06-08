@@ -150,6 +150,19 @@ export default function App() {
     }
   };
 
+  const handleResetSubmissions = async () => {
+    if (!window.confirm('Are you sure you want to clear the entire leaderboard? This will permanently delete all student submissions!')) return;
+    try {
+      await axios.post(`${API_BASE}/admin/submissions/reset`, {}, {
+        headers: { 'X-Admin-Password': adminPassword }
+      });
+      alert('Leaderboard has been successfully cleared!');
+    } catch (err) {
+      console.error(err);
+      setAdminError(err.response?.data?.detail || 'Failed to reset leaderboard.');
+    }
+  };
+
   const resetQuestionForm = () => {
     setNewQuestionText('');
     setNewOptA('');
@@ -748,13 +761,20 @@ export default function App() {
             </div>
 
             {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between pt-4">
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between pt-4 w-full">
               <button
                 onClick={handlePlayAgain}
                 className="w-full sm:w-auto px-6 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-850 hover:border-slate-700 text-slate-200 font-bold rounded-xl flex items-center justify-center space-x-2 transition"
               >
                 <RotateCcw className="w-5 h-5 text-indigo-400" />
-                <span>Take Quiz Again</span>
+                <span>Return to Home</span>
+              </button>
+              <button 
+                onClick={() => { setAdminError(''); setPhase('ADMIN_LOGIN'); }}
+                className="w-full sm:w-auto px-6 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-850 hover:border-slate-700 text-slate-200 font-bold rounded-xl flex items-center justify-center space-x-2 transition"
+              >
+                <Plus className="w-4 h-4 text-indigo-400" />
+                <span>Admin Dashboard</span>
               </button>
             </div>
           </div>
@@ -889,6 +909,13 @@ export default function App() {
                 >
                   <RotateCcw className="w-4 h-4" />
                   <span>Reset Default</span>
+                </button>
+                <button
+                  onClick={handleResetSubmissions}
+                  className="flex-1 sm:flex-initial py-2.5 px-4 bg-rose-600/20 hover:bg-rose-600/35 text-rose-300 border border-rose-500/20 rounded-xl flex items-center justify-center space-x-1.5 transition"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Clear Scores</span>
                 </button>
                 <button
                   onClick={() => {
