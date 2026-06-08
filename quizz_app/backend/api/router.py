@@ -2,7 +2,7 @@ import random
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 
 from db.session import get_db
 from models import Question, Submission
@@ -238,3 +238,56 @@ async def delete_question(question_id: int, db: AsyncSession = Depends(get_db)):
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/admin/questions/reset", status_code=status.HTTP_200_OK, dependencies=[Depends(verify_admin)])
+async def reset_questions(db: AsyncSession = Depends(get_db)):
+    try:
+        await db.execute(text("TRUNCATE TABLE questions RESTART IDENTITY CASCADE"))
+        seed_questions = [
+            Question(
+                text="Which of the following HTTP status codes represents 'Unauthorized' access?",
+                opt_a="400 Bad Request",
+                opt_b="401 Unauthorized",
+                opt_c="403 Forbidden",
+                opt_d="404 Not Found",
+                correct="B"
+            ),
+            Question(
+                text="What is the primary purpose of the 'defer' attribute in a <script> tag?",
+                opt_a="It executes the script asynchronously as soon as it is downloaded",
+                opt_b="It delays script execution until the HTML document is fully parsed",
+                opt_c="It blocks page rendering until the script is fully executed",
+                opt_d="It executes the script in a web worker thread",
+                correct="B"
+            ),
+            Question(
+                text="In CSS Flexbox, which property controls the alignment of items along the main axis?",
+                opt_a="align-items",
+                opt_b="align-content",
+                opt_c="justify-content",
+                opt_d="flex-direction",
+                correct="C"
+            ),
+            Question(
+                text="Which React Hook is designed to execute side effects in a functional component?",
+                opt_a="useState",
+                opt_b="useMemo",
+                opt_c="useEffect",
+                opt_d="useCallback",
+                correct="C"
+            ),
+            Question(
+                text="What is the primary role of the Event Loop in the JavaScript runtime?",
+                opt_a="It executes database operations asynchronously on separate OS threads",
+                opt_b="It manages memory allocation and garbage collection for the application",
+                opt_c="It monitors the call stack and execution queue to run asynchronous callbacks",
+                opt_d="It runs synchronous JavaScript code in a pool of worker threads",
+                correct="C"
+            )
+        ]
+        db.add_all(seed_questions)
+        await db.commit()
+        return {"status": "success", "message": "Questions reset to default."}
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to reset questions. Error: {str(e)}")

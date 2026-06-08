@@ -137,6 +137,19 @@ export default function App() {
     }
   };
 
+  const handleResetQuestions = async () => {
+    if (!window.confirm('Are you sure you want to reset all questions to the default seed list? This will delete all custom questions!')) return;
+    try {
+      await axios.post(`${API_BASE}/admin/questions/reset`, {}, {
+        headers: { 'X-Admin-Password': adminPassword }
+      });
+      await fetchAdminQuestions();
+    } catch (err) {
+      console.error(err);
+      setAdminError(err.response?.data?.detail || 'Failed to reset questions.');
+    }
+  };
+
   const resetQuestionForm = () => {
     setNewQuestionText('');
     setNewOptA('');
@@ -871,6 +884,13 @@ export default function App() {
                   <span>New Question</span>
                 </button>
                 <button
+                  onClick={handleResetQuestions}
+                  className="flex-1 sm:flex-initial py-2.5 px-4 bg-amber-600/20 hover:bg-amber-600/35 text-amber-300 border border-amber-500/20 rounded-xl flex items-center justify-center space-x-1.5 transition"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Reset Default</span>
+                </button>
+                <button
                   onClick={() => {
                     setAdminPassword('');
                     setAdminQuestions([]);
@@ -878,7 +898,7 @@ export default function App() {
                   }}
                   className="flex-1 sm:flex-initial py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl flex items-center justify-center space-x-1.5 border border-slate-750 transition"
                 >
-                  <LogOut className="w-4 h-4 text-rose-450" />
+                  <LogOut className="w-4 h-4 text-rose-455" />
                   <span>Exit Admin</span>
                 </button>
               </div>
