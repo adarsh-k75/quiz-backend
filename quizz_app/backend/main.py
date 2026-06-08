@@ -15,7 +15,7 @@ from sqlalchemy import select, func, text
 # Configuration Settings
 class Settings(BaseSettings):
     model_config = ConfigDict(env_file=".env", extra="ignore")
-    DATABASE_URL: str = "sqlite+aiosqlite:///quizz_db.sqlite3"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/quizz_db"
     PORT: int = 8000
     HOST: str = "0.0.0.0"
 
@@ -95,17 +95,14 @@ async def get_db():
 # Startup and Lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global engine, async_session
-    # Check database connectivity and fallback to SQLite if needed
+    # Verify database connectivity
     try:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
+        print("Successfully connected to the PostgreSQL database.")
     except Exception as db_err:
-        print(f"Warning: Connection to primary database failed: {db_err}")
-        print("Falling back to local SQLite database: quizz_db.sqlite3")
-        await engine.dispose()
-        engine = create_async_engine("sqlite+aiosqlite:///quizz_db.sqlite3", echo=True)
-        async_session = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+        print(f"Error: Connection to PostgreSQL database failed: {db_err}")
+        raise db_err
 
     # Initialize tables and seed questions if empty
     try:
