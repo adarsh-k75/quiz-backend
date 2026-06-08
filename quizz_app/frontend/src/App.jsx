@@ -14,7 +14,13 @@ import {
   ArrowRight, 
   Lock, 
   ShieldAlert,
-  BookOpen
+  BookOpen,
+  Plus,
+  Edit,
+  Trash2,
+  X,
+  LogOut,
+  ChevronLeft
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000/api';
@@ -40,6 +46,124 @@ export default function App() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [currentSubmission, setCurrentSubmission] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Admin Panel State
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminQuestions, setAdminQuestions] = useState([]);
+  const [adminError, setAdminError] = useState('');
+  const [editingQuestion, setEditingQuestion] = useState(null);
+  const [isQuestionFormOpen, setIsQuestionFormOpen] = useState(false);
+  const [newQuestionText, setNewQuestionText] = useState('');
+  const [newOptA, setNewOptA] = useState('');
+  const [newOptB, setNewOptB] = useState('');
+  const [newOptC, setNewOptC] = useState('');
+  const [newOptD, setNewOptD] = useState('');
+  const [newCorrect, setNewCorrect] = useState('A');
+
+  // Fetch questions for Admin Panel
+  const fetchAdminQuestions = async (pass = adminPassword) => {
+    try {
+      const response = await axios.get(`${API_BASE}/admin/questions`, {
+        headers: { 'X-Admin-Password': pass }
+      });
+      setAdminQuestions(response.data);
+      setAdminError('');
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
+  };
+
+  // Admin login handler
+  const handleAdminLogin = async (pass) => {
+    try {
+      await fetchAdminQuestions(pass);
+      setAdminPassword(pass);
+      setPhase('ADMIN_DASHBOARD');
+    } catch (err) {
+      setAdminError(err.response?.data?.detail || 'Authentication failed. Please check the passcode.');
+    }
+  };
+
+  // Add or edit a question
+  const handleSaveQuestion = async (e) => {
+    e.preventDefault();
+    if (!newQuestionText.trim() || !newOptA.trim() || !newOptB.trim() || !newOptC.trim() || !newOptD.trim()) {
+      setAdminError('Please fill in all question and option fields.');
+      return;
+    }
+    const payload = {
+      text: newQuestionText.trim(),
+      opt_a: newOptA.trim(),
+      opt_b: newOptB.trim(),
+      opt_c: newOptC.trim(),
+      opt_d: newOptD.trim(),
+      correct: newCorrect.trim()
+    };
+
+    try {
+      if (editingQuestion) {
+        // Edit existing
+        await axios.put(`${API_BASE}/admin/questions/${editingQuestion.id}`, payload, {
+          headers: { 'X-Admin-Password': adminPassword }
+        });
+      } else {
+        // Create new
+        await axios.post(`${API_BASE}/admin/questions`, payload, {
+          headers: { 'X-Admin-Password': adminPassword }
+        });
+      }
+      // Reload and close modal
+      await fetchAdminQuestions();
+      setIsQuestionFormOpen(false);
+      resetQuestionForm();
+    } catch (err) {
+      console.error(err);
+      setAdminError(err.response?.data?.detail || 'Failed to save question.');
+    }
+  };
+
+  // Delete a question
+  const handleDeleteQuestion = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this question?')) return;
+    try {
+      await axios.delete(`${API_BASE}/admin/questions/${id}`, {
+        headers: { 'X-Admin-Password': adminPassword }
+      });
+      await fetchAdminQuestions();
+    } catch (err) {
+      console.error(err);
+      setAdminError(err.response?.data?.detail || 'Failed to delete question.');
+    }
+  };
+
+  const resetQuestionForm = () => {
+    setNewQuestionText('');
+    setNewOptA('');
+    setNewOptB('');
+    setNewOptC('');
+    setNewOptD('');
+    setNewCorrect('A');
+    setEditingQuestion(null);
+    setAdminError('');
+  };
+
+  const openCreateForm = () => {
+    resetQuestionForm();
+    setIsQuestionFormOpen(true);
+  };
+
+  const openEditForm = (q) => {
+    setEditingQuestion(q);
+    setNewQuestionText(q.text);
+    setNewOptA(q.opt_a);
+    setNewOptB(q.opt_b);
+    setNewOptC(q.opt_c);
+    setNewOptD(q.opt_d);
+    setNewCorrect(q.correct);
+    setAdminError('');
+    setIsQuestionFormOpen(true);
+  };
 
   // 1. Session Invalidation Check (Cheating Prevention)
   useEffect(() => {
@@ -337,12 +461,19 @@ export default function App() {
               </button>
             </form>
             
-            <div className="mt-6 pt-6 border-t border-slate-800/80 text-center">
+            <div className="mt-6 pt-6 border-t border-slate-800/80 flex justify-between items-center px-2">
               <button 
                 onClick={() => { fetchLeaderboard(); setPhase('C'); }}
                 className="text-xs text-slate-400 hover:text-indigo-400 font-semibold transition"
               >
                 Skip to Leaderboards
+              </button>
+              <button 
+                onClick={() => { setAdminError(''); setPhase('ADMIN_LOGIN'); }}
+                className="text-xs text-slate-400 hover:text-indigo-400 font-semibold transition flex items-center space-x-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Admin Dashboard</span>
               </button>
             </div>
           </div>
@@ -661,6 +792,281 @@ export default function App() {
               <RotateCcw className="w-5 h-5" />
               <span>Return to Entrance</span>
             </button>
+          </div>
+        )}
+
+        {/* Phase: ADMIN_LOGIN Screen */}
+        {phase === 'ADMIN_LOGIN' && (
+          <div className="w-full max-w-md p-8 rounded-2xl glass-card animate-scale-in">
+            <div className="text-center mb-6">
+              <div className="inline-flex p-3 bg-indigo-500/10 rounded-full text-indigo-400 border border-indigo-500/20 mb-3">
+                <Lock className="w-8 h-8" />
+              </div>
+              <h2 className="text-2xl font-extrabold text-white">Admin Authentication</h2>
+              <p className="text-sm text-slate-400 mt-2">Enter the administrator passcode to access the Question Manager dashboard.</p>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const pass = e.target.elements.adminPass.value;
+              handleAdminLogin(pass);
+            }} className="space-y-5">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Passcode</label>
+                <input
+                  name="adminPass"
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  className="w-full px-4 py-3 rounded-xl bg-slate-950/80 border border-slate-800 text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition text-center tracking-widest font-bold"
+                />
+              </div>
+
+              {adminError && (
+                <div className="flex items-center space-x-2 text-xs text-rose-400 bg-rose-500/10 p-3 rounded-xl border border-rose-500/20">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                  <span>{adminError}</span>
+                </div>
+              )}
+
+              <div className="flex space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setPhase('A')}
+                  className="w-1/2 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="w-1/2 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold rounded-xl shadow-lg transition"
+                >
+                  Verify Access
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Phase: ADMIN_DASHBOARD Screen */}
+        {phase === 'ADMIN_DASHBOARD' && (
+          <div className="w-full space-y-6 animate-fade-in">
+            {/* Admin Header Panel */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/40 p-5 rounded-2xl border border-slate-800/80">
+              <div>
+                <h2 className="text-xl font-extrabold text-white flex items-center space-x-2">
+                  <span className="p-1.5 bg-indigo-500/10 rounded-lg text-indigo-400 border border-indigo-500/20">
+                    <BookOpen className="w-5 h-5" />
+                  </span>
+                  <span>Question Repository Manager</span>
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">Add, update, or remove database trivia questions.</p>
+              </div>
+              <div className="flex space-x-3 w-full sm:w-auto font-bold text-xs">
+                <button
+                  onClick={openCreateForm}
+                  className="flex-1 sm:flex-initial py-2.5 px-4 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl flex items-center justify-center space-x-1.5 transition"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>New Question</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setAdminPassword('');
+                    setAdminQuestions([]);
+                    setPhase('A');
+                  }}
+                  className="flex-1 sm:flex-initial py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl flex items-center justify-center space-x-1.5 border border-slate-750 transition"
+                >
+                  <LogOut className="w-4 h-4 text-rose-450" />
+                  <span>Exit Admin</span>
+                </button>
+              </div>
+            </div>
+
+            {adminError && (
+              <div className="flex items-center space-x-2 text-xs text-rose-400 bg-rose-500/10 p-3 rounded-xl border border-rose-500/20">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                <span>{adminError}</span>
+              </div>
+            )}
+
+            {/* Questions Grid/List */}
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+              {adminQuestions.length === 0 ? (
+                <div className="text-center p-12 bg-slate-900/20 border border-slate-800/60 rounded-2xl">
+                  <p className="text-slate-400">No questions found in database.</p>
+                  <button
+                    onClick={openCreateForm}
+                    className="mt-4 text-xs font-bold text-indigo-400 hover:underline"
+                  >
+                    Add the first question now
+                  </button>
+                </div>
+              ) : (
+                adminQuestions.map((q) => (
+                  <div 
+                    key={q.id} 
+                    className="p-5 rounded-2xl bg-slate-905/40 border border-slate-850 hover:border-slate-800 transition flex flex-col justify-between gap-4"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-start gap-4">
+                        <span className="bg-indigo-950/80 text-indigo-300 text-[10px] font-black px-2 py-0.5 rounded border border-indigo-500/20">
+                          ID: {q.id}
+                        </span>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => openEditForm(q)}
+                            className="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-indigo-400 transition"
+                            title="Edit Question"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteQuestion(q.id)}
+                            className="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-rose-400 transition"
+                            title="Delete Question"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <h4 className="text-sm font-bold text-white leading-relaxed">{q.text}</h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      <div className={`p-2.5 rounded-lg border ${q.correct === 'A' ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300 font-bold' : 'bg-slate-950/40 border-slate-900 text-slate-400'}`}>
+                        <span className="font-extrabold mr-1.5">A.</span> {q.opt_a}
+                      </div>
+                      <div className={`p-2.5 rounded-lg border ${q.correct === 'B' ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300 font-bold' : 'bg-slate-950/40 border-slate-900 text-slate-400'}`}>
+                        <span className="font-extrabold mr-1.5">B.</span> {q.opt_b}
+                      </div>
+                      <div className={`p-2.5 rounded-lg border ${q.correct === 'C' ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300 font-bold' : 'bg-slate-950/40 border-slate-900 text-slate-400'}`}>
+                        <span className="font-extrabold mr-1.5">C.</span> {q.opt_c}
+                      </div>
+                      <div className={`p-2.5 rounded-lg border ${q.correct === 'D' ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300 font-bold' : 'bg-slate-950/40 border-slate-900 text-slate-400'}`}>
+                        <span className="font-extrabold mr-1.5">D.</span> {q.opt_d}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Modal Dialog Form overlay */}
+            {isQuestionFormOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+                <div className="w-full max-w-lg p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl flex flex-col gap-4 animate-scale-in text-left">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-800">
+                    <h3 className="text-md font-extrabold text-white">
+                      {editingQuestion ? 'Modify Question' : 'Add Question Details'}
+                    </h3>
+                    <button 
+                      onClick={() => setIsQuestionFormOpen(false)}
+                      className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleSaveQuestion} className="space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Question Text</label>
+                      <textarea
+                        required
+                        rows={2}
+                        value={newQuestionText}
+                        onChange={(e) => setNewQuestionText(e.target.value)}
+                        placeholder="Type question content here..."
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition resize-none"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Options</label>
+                      <div className="grid grid-cols-1 gap-2.5">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-black text-slate-500">A</span>
+                          <input
+                            type="text"
+                            required
+                            value={newOptA}
+                            onChange={(e) => setNewOptA(e.target.value)}
+                            placeholder="Option A description"
+                            className="flex-1 px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
+                          />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-black text-slate-500">B</span>
+                          <input
+                            type="text"
+                            required
+                            value={newOptB}
+                            onChange={(e) => setNewOptB(e.target.value)}
+                            placeholder="Option B description"
+                            className="flex-1 px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
+                          />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-black text-slate-500">C</span>
+                          <input
+                            type="text"
+                            required
+                            value={newOptC}
+                            onChange={(e) => setNewOptC(e.target.value)}
+                            placeholder="Option C description"
+                            className="flex-1 px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
+                          />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-black text-slate-500">D</span>
+                          <input
+                            type="text"
+                            required
+                            value={newOptD}
+                            onChange={(e) => setNewOptD(e.target.value)}
+                            placeholder="Option D description"
+                            className="flex-1 px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Correct Option</label>
+                        <select
+                          value={newCorrect}
+                          onChange={(e) => setNewCorrect(e.target.value)}
+                          className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white focus:outline-none focus:border-indigo-500 transition"
+                        >
+                          <option value="A">Option A</option>
+                          <option value="B">Option B</option>
+                          <option value="C">Option C</option>
+                          <option value="D">Option D</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex space-x-3 pt-3 border-t border-slate-800 text-xs font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setIsQuestionFormOpen(false)}
+                        className="w-1/2 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="w-1/2 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-lg shadow-md transition"
+                      >
+                        Save Details
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
