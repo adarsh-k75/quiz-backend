@@ -291,3 +291,13 @@ async def reset_questions(db: AsyncSession = Depends(get_db)):
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to reset questions. Error: {str(e)}")
+
+@router.post("/admin/submissions/reset", status_code=status.HTTP_200_OK, dependencies=[Depends(verify_admin)])
+async def reset_submissions(db: AsyncSession = Depends(get_db)):
+    try:
+        await db.execute(text("TRUNCATE TABLE submissions RESTART IDENTITY CASCADE"))
+        await db.commit()
+        return {"status": "success", "message": "Leaderboard submissions reset successfully."}
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to reset submissions. Error: {str(e)}")
