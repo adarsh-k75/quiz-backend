@@ -31,7 +31,7 @@ export default function App() {
   // Quiz Engine State
   const [questions, setQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [secondsLeft, setSecondsLeft] = useState(5.0);
+  const [secondsLeft, setSecondsLeft] = useState(10.0);
   const [answers, setAnswers] = useState([]);
   const [selectedOption, setSelectedOption] = useState(null);
   const [isLocked, setIsLocked] = useState(false);
@@ -68,7 +68,7 @@ export default function App() {
       setQuestions(response.data);
       setAnswers([]);
       setCurrentQuestionIndex(0);
-      setSecondsLeft(5.0);
+      setSecondsLeft(10.0);
       setSelectedOption(null);
       setIsLocked(false);
 
@@ -136,7 +136,7 @@ export default function App() {
     // Reset option states
     setSelectedOption(null);
     setIsLocked(false);
-    setSecondsLeft(5.0);
+    setSecondsLeft(10.0);
 
     if (currentQuestionIndex < 4) {
       setCurrentQuestionIndex((prev) => prev + 1);
@@ -375,7 +375,7 @@ export default function App() {
                     ? 'bg-gradient-to-r from-red-500 to-rose-600' 
                     : 'bg-gradient-to-r from-emerald-400 to-indigo-500'
                 }`}
-                style={{ width: `${(secondsLeft / 5) * 100}%` }}
+                style={{ width: `${(secondsLeft / 10) * 100}%` }}
               ></div>
             </div>
 

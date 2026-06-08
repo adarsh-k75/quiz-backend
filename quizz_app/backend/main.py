@@ -23,8 +23,6 @@ settings = Settings()
 
 # Database Setup
 database_url = os.environ.get("DATABASE_URL") or settings.DATABASE_URL
-
-# Rewrite connection scheme if needed to support asyncpg
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
 elif database_url.startswith("postgresql://"):
@@ -181,8 +179,8 @@ app = FastAPI(
 allowed_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "https://quiz-app-25bdf.web.app",
-    "https://quiz-app-25bdf.firebaseapp.com"
+    "https://quiz-app-25bdf.firebaseapp.com",
+    "https://quiz-app-25bdf.web.app"
 ]
 
 app.add_middleware(
@@ -255,21 +253,21 @@ async def submit_quiz(submission_data: UserJoin, db: AsyncSession = Depends(get_
             if not q:
                 continue # Skip invalid question ids
             
-            # Constrain seconds_left to valid boundaries (0 to 5 seconds)
-            sec_left = max(0.0, min(5.0, ans.seconds_left))
+            # Constrain seconds_left to valid boundaries (0 to 10 seconds)
+            sec_left = max(0.0, min(10.0, ans.seconds_left))
             
             # Record time left
             cumulative_time_left += sec_left
             
             # Rules:
             # 1. If seconds_left == 0, score for that question is strictly 0.
-            # 2. If correct, base weight: 100 points, Speed Multiplier: add (seconds_left * 10). Max score = 150.
+            # 2. If correct, base weight: 100 points, Speed Multiplier: add (seconds_left * 10). Max score = 200.
             # 3. If incorrect, score is 0.
             if sec_left <= 0.0:
                 question_score = 0
             elif ans.selected_option == q.correct:
                 question_score = int(100 + (sec_left * 10))
-                question_score = min(150, question_score) # Cap at 150
+                question_score = min(200, question_score) # Cap at 200
             else:
                 question_score = 0
                 
