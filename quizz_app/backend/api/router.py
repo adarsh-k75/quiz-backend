@@ -20,28 +20,44 @@ router = APIRouter(prefix="/api")
 @router.get("/questions", response_model=List[QuestionResponse])
 async def get_questions(db: AsyncSession = Depends(get_db)):
     """
-    Randomly selects exactly 5 questions.
+    Randomly selects exactly 10 questions.
     Strips the correct answer column from the payload.
     """
     try:
-        # Use func.random() for database-level random ordering and limit to 5
-        query = select(Question).order_by(func.random()).limit(5)
+        # Use func.random() for database-level random ordering and limit to 10
+        query = select(Question).order_by(func.random()).limit(10)
         result = await db.execute(query)
         questions = result.scalars().all()
         
         # In case the table has fewer questions
-        if len(questions) < 5:
+        if len(questions) < 10:
             query_all = select(Question)
             all_res = await db.execute(query_all)
             questions = all_res.scalars().all()
-            if len(questions) > 5:
-                questions = random.sample(questions, 5)
+            if len(questions) > 10:
+                questions = random.sample(questions, 10)
                 
         return questions
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve questions. Error: {str(e)}"
+        )
+
+@router.get("/check-username")
+async def check_username(name: str, db: AsyncSession = Depends(get_db)):
+    """
+    Checks if a username has already been registered in the submissions.
+    """
+    try:
+        query = select(Submission).where(Submission.name == name.strip())
+        result = await db.execute(query)
+        exists = result.scalar_one_or_none() is not None
+        return {"exists": exists}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to check username. Error: {str(e)}"
         )
 
 @router.post("/submit", response_model=SubmissionResponse)
@@ -51,6 +67,21 @@ async def submit_quiz(submission_data: UserJoin, db: AsyncSession = Depends(get_
     and saves the user submission.
     """
     try:
+        if not submission_data.name or not submission_data.name.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Name cannot be empty."
+            )
+
+        # Check if username is already taken
+        username_query = select(Submission).where(Submission.name == submission_data.name.strip())
+        username_result = await db.execute(username_query)
+        if username_result.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Name is already taken. Please choose another name."
+            )
+
         if not submission_data.answers:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -283,6 +314,46 @@ async def reset_questions(db: AsyncSession = Depends(get_db)):
                 opt_c="It monitors the call stack and execution queue to run asynchronous callbacks",
                 opt_d="It runs synchronous JavaScript code in a pool of worker threads",
                 correct="C"
+            ),
+            Question(
+                text="Which HTML5 element is used to display a self-contained thematic content like illustrations, diagrams, or photos?",
+                opt_a="picture",
+                opt_b="figure",
+                opt_c="image",
+                opt_d="aside",
+                correct="B"
+            ),
+            Question(
+                text="What is the correct syntax in CSS to target all elements with the class name 'highlight'?",
+                opt_a="#highlight",
+                opt_b=".highlight",
+                opt_c="highlight",
+                opt_d="*highlight",
+                correct="B"
+            ),
+            Question(
+                text="Which SQL keyword is used to sort the result-set in ascending or descending order?",
+                opt_a="SORT BY",
+                opt_b="ORDER BY",
+                opt_c="GROUP BY",
+                opt_d="ALIGN BY",
+                correct="B"
+            ),
+            Question(
+                text="In JavaScript, what is the value of typeof null?",
+                opt_a="object",
+                opt_b="null",
+                opt_c="undefined",
+                opt_d="boolean",
+                correct="A"
+            ),
+            Question(
+                text="Which of the following is NOT a valid state in a Promise in JavaScript?",
+                opt_a="pending",
+                opt_b="fulfilled",
+                opt_c="rejected",
+                opt_d="processing",
+                correct="D"
             )
         ]
         db.add_all(seed_questions)

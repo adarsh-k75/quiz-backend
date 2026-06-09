@@ -7,7 +7,7 @@ class Submission(Base):
     __tablename__ = "submissions"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(nullable=False)
+    name: Mapped[str] = mapped_column(unique=True, nullable=False)
     batch: Mapped[str] = mapped_column(nullable=False)
     score: Mapped[int] = mapped_column(nullable=False)
     speed_bonus: Mapped[float] = mapped_column(nullable=False)  # Represents cumulative seconds_left

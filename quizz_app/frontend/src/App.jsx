@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { 
-  Crown, 
-  Timer, 
-  Trophy, 
-  User, 
-  Users, 
-  CheckCircle2, 
-  AlertTriangle, 
-  RotateCcw, 
-  Sparkles, 
-  Medal, 
-  ArrowRight, 
-  Lock, 
+import {
+  Crown,
+  Timer,
+  Trophy,
+  User,
+  Users,
+  CheckCircle2,
+  AlertTriangle,
+  RotateCcw,
+  Sparkles,
+  Medal,
+  ArrowRight,
+  Lock,
   ShieldAlert,
   BookOpen,
   Plus,
@@ -28,7 +28,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000/api';
 export default function App() {
   // App Phase States: 'A' (Gatekeeper), 'B' (Quiz), 'SUBMITTING', 'C' (Leaderboard), 'DISQUALIFIED', 'ERROR'
   const [phase, setPhase] = useState('A');
-  
+
   // User Registration State
   const [name, setName] = useState('');
   const [batch, setBatch] = useState('');
@@ -288,10 +288,10 @@ export default function App() {
     setIsLocked(false);
     setSecondsLeft(10.0);
 
-    if (currentQuestionIndex < 4) {
+    if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
-      // All 5 questions completed -> Fire payload
+      // All questions completed -> Fire payload
       submitQuiz(newAnswers);
     }
   };
@@ -317,13 +317,13 @@ export default function App() {
         answers: compiledAnswers
       };
       const response = await axios.post(`${API_BASE}/submit`, payload);
-      
+
       // Save submission to highlight in the leaderboard
       setCurrentSubmission(response.data);
-      
+
       // Mark session as completed
       sessionStorage.setItem('quiz_status', 'completed');
-      
+
       // Load leaderboard and transition to Phase C
       await fetchLeaderboard();
       setPhase('C');
@@ -335,10 +335,10 @@ export default function App() {
   };
 
   // Validate user join input fields
-  const handleLaunch = (e) => {
+  const handleLaunch = async (e) => {
     e.preventDefault();
     const alphanumericRegex = /^[a-zA-Z0-9 ]+$/;
-    
+
     if (!name.trim() || !batch.trim()) {
       setInputError('Please fill in both Name and Batch fields.');
       return;
@@ -350,7 +350,22 @@ export default function App() {
     }
 
     setInputError('');
-    startQuiz();
+    try {
+      setPhase('LOADING');
+      const checkResponse = await axios.get(`${API_BASE}/check-username`, {
+        params: { name: name.trim() }
+      });
+      if (checkResponse.data.exists) {
+        setInputError('This name is already taken. Please choose another name.');
+        setPhase('A');
+        return;
+      }
+      startQuiz();
+    } catch (err) {
+      console.error(err);
+      setInputError('Failed to check username availability. Please try again.');
+      setPhase('A');
+    }
   };
 
   // Reset session and play again
@@ -369,7 +384,7 @@ export default function App() {
 
   // Helper to extract podium items (Top 3)
   const podiumList = leaderboard.slice(0, 3);
-  
+
   // Helper to extract rest of leaderboard
   const remainingList = leaderboard.slice(3);
 
@@ -411,7 +426,7 @@ export default function App() {
             <h1 className="font-extrabold text-2xl tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
               DevShowdown
             </h1>
-            <p className="text-xs text-slate-400 font-medium">Real-Time Web Dev Trivia Arena</p>
+            <p className="text-xs text-slate-400 font-medium">Real-Time Web Quizz</p>
           </div>
         </div>
         {phase === 'B' && (
@@ -424,7 +439,7 @@ export default function App() {
 
       {/* Main Content Areas */}
       <main className="flex-grow flex items-center justify-center w-full">
-        
+
         {/* Phase A: Guest Gatekeeper */}
         {phase === 'A' && (
           <div className="w-full max-w-md p-8 rounded-2xl glass-card animate-slide-up">
@@ -433,7 +448,7 @@ export default function App() {
                 <Sparkles className="w-8 h-8" />
               </div>
               <h2 className="text-2xl font-extrabold text-white">Enter the Arena</h2>
-              <p className="text-sm text-slate-400 mt-2">Test your web development speed and precision. 5 questions. 5 seconds each. Highest speed wins.</p>
+              <p className="text-sm text-slate-400 mt-2">Test your mind speed and precision. 10 questions, 10 seconds each. Highest speed and correct answers win.</p>
             </div>
 
             <form onSubmit={handleLaunch} className="space-y-5">
@@ -486,15 +501,15 @@ export default function App() {
                 <ArrowRight className="w-5 h-5" />
               </button>
             </form>
-            
+
             <div className="mt-6 pt-6 border-t border-slate-800/80 flex justify-between items-center px-2">
-              <button 
+              <button
                 onClick={() => { fetchLeaderboard(); setPhase('C'); }}
                 className="text-xs text-slate-400 hover:text-indigo-400 font-semibold transition"
               >
                 Skip to Leaderboards
               </button>
-              <button 
+              <button
                 onClick={() => { setAdminError(''); setPhase('ADMIN_LOGIN'); }}
                 className="text-xs text-slate-400 hover:text-indigo-400 font-semibold transition flex items-center space-x-1"
               >
@@ -511,10 +526,10 @@ export default function App() {
             {/* Header: Progress and Timer */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">Step {currentQuestionIndex + 1} of 5</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">Step {currentQuestionIndex + 1} of {questions.length}</span>
                 <h3 className="text-lg font-bold text-slate-300">Question Path</h3>
               </div>
-              
+
               {/* High precision countdown timer container */}
               <div className="flex items-center space-x-3 bg-slate-950/80 px-4 py-2 rounded-xl border border-slate-800 min-w-[120px] justify-center">
                 <Timer className={`w-5 h-5 ${secondsLeft <= 1.5 ? 'text-rose-500 animate-bounce' : 'text-slate-400'}`} />
@@ -526,12 +541,11 @@ export default function App() {
 
             {/* Micro Countdown progress bar */}
             <div className="w-full bg-slate-900 rounded-full h-2 mb-8 overflow-hidden border border-slate-800">
-              <div 
-                className={`h-full transition-all duration-100 ease-linear ${
-                  secondsLeft <= 1.5 
-                    ? 'bg-gradient-to-r from-red-500 to-rose-600' 
-                    : 'bg-gradient-to-r from-emerald-400 to-indigo-500'
-                }`}
+              <div
+                className={`h-full transition-all duration-100 ease-linear ${secondsLeft <= 1.5
+                  ? 'bg-gradient-to-r from-red-500 to-rose-600'
+                  : 'bg-gradient-to-r from-emerald-400 to-indigo-500'
+                  }`}
                 style={{ width: `${(secondsLeft / 10) * 100}%` }}
               ></div>
             </div>
@@ -552,28 +566,26 @@ export default function App() {
                 { key: 'D', text: questions[currentQuestionIndex].opt_d },
               ].map((opt) => {
                 const isSelected = selectedOption === opt.key;
-                
+
                 return (
                   <button
                     key={opt.key}
                     onClick={() => handleOptionClick(opt.key)}
                     disabled={isLocked}
-                    className={`w-full text-left p-4 rounded-xl border transition-all duration-200 flex items-center justify-between ${
-                      isSelected 
-                        ? 'bg-indigo-600/35 border-indigo-500 text-white shadow-md shadow-indigo-600/10' 
-                        : isLocked 
-                          ? 'bg-slate-900/30 border-slate-800/40 text-slate-500 cursor-not-allowed'
-                          : 'bg-slate-900/80 border-slate-800 hover:border-slate-700 text-slate-300 hover:bg-slate-800/60 hover:-translate-y-0.5'
-                    }`}
+                    className={`w-full text-left p-4 rounded-xl border transition-all duration-200 flex items-center justify-between ${isSelected
+                      ? 'bg-indigo-600/35 border-indigo-500 text-white shadow-md shadow-indigo-600/10'
+                      : isLocked
+                        ? 'bg-slate-900/30 border-slate-800/40 text-slate-500 cursor-not-allowed'
+                        : 'bg-slate-900/80 border-slate-800 hover:border-slate-700 text-slate-300 hover:bg-slate-800/60 hover:-translate-y-0.5'
+                      }`}
                   >
                     <div className="flex items-center space-x-3.5 pr-2">
-                      <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
-                        isSelected 
-                          ? 'bg-indigo-500 text-white' 
-                          : isLocked 
-                            ? 'bg-slate-950 text-slate-600'
-                            : 'bg-slate-950 text-slate-400 group-hover:text-white'
-                      }`}>
+                      <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${isSelected
+                        ? 'bg-indigo-500 text-white'
+                        : isLocked
+                          ? 'bg-slate-950 text-slate-600'
+                          : 'bg-slate-950 text-slate-400 group-hover:text-white'
+                        }`}>
                         {opt.key}
                       </span>
                       <span className="font-semibold text-sm sm:text-base">{opt.text}</span>
@@ -585,7 +597,7 @@ export default function App() {
                 );
               })}
             </div>
-            
+
             {/* Anti-cheat disclaimer */}
             <div className="mt-8 pt-4 border-t border-slate-800/60 flex items-center justify-center space-x-2 text-xs text-slate-500">
               <Lock className="w-3.5 h-3.5" />
@@ -597,7 +609,7 @@ export default function App() {
         {/* Phase C: The Winner's Circle (Leaderboards) */}
         {phase === 'C' && (
           <div className="w-full space-y-8 animate-fade-in">
-            
+
             {/* Session success notification banner */}
             {currentSubmission && (
               <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border border-emerald-500/20 text-center relative overflow-hidden">
@@ -607,7 +619,7 @@ export default function App() {
                 </div>
                 <h3 className="text-xl font-black text-white">Quiz Successfully Logged!</h3>
                 <p className="text-sm text-slate-300 mt-1.5 max-w-lg mx-auto">
-                  Nice work, <span className="font-bold text-indigo-300">{currentSubmission.name}</span>! 
+                  Nice work, <span className="font-bold text-indigo-300">{currentSubmission.name}</span>!
                   Your performance was submitted to the smart scoring system.
                 </p>
                 <div className="flex items-center justify-center gap-6 mt-4 max-w-sm mx-auto">
@@ -718,15 +730,14 @@ export default function App() {
                   <tbody className="divide-y divide-slate-900">
                     {leaderboard.map((row, index) => {
                       const isCurrentUser = currentSubmission && row.id === currentSubmission.id;
-                      
+
                       return (
-                        <tr 
-                          key={row.id} 
-                          className={`transition duration-150 ${
-                            isCurrentUser 
-                              ? 'bg-indigo-950/40 border-y-2 border-indigo-500/40 font-bold text-indigo-200' 
-                              : 'hover:bg-slate-900/40 text-slate-300'
-                          }`}
+                        <tr
+                          key={row.id}
+                          className={`transition duration-150 ${isCurrentUser
+                            ? 'bg-indigo-950/40 border-y-2 border-indigo-500/40 font-bold text-indigo-200'
+                            : 'hover:bg-slate-900/40 text-slate-300'
+                            }`}
                         >
                           <td className="py-3.5 px-4 text-sm font-semibold">
                             {index === 0 ? (
@@ -769,7 +780,7 @@ export default function App() {
                 <RotateCcw className="w-5 h-5 text-indigo-400" />
                 <span>Return to Home</span>
               </button>
-              <button 
+              <button
                 onClick={() => { setAdminError(''); setPhase('ADMIN_LOGIN'); }}
                 className="w-full sm:w-auto px-6 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-850 hover:border-slate-700 text-slate-200 font-bold rounded-xl flex items-center justify-center space-x-2 transition"
               >
@@ -952,8 +963,8 @@ export default function App() {
                 </div>
               ) : (
                 adminQuestions.map((q) => (
-                  <div 
-                    key={q.id} 
+                  <div
+                    key={q.id}
                     className="p-5 rounded-2xl bg-slate-905/40 border border-slate-850 hover:border-slate-800 transition flex flex-col justify-between gap-4"
                   >
                     <div className="space-y-3">
@@ -1008,7 +1019,7 @@ export default function App() {
                     <h3 className="text-md font-extrabold text-white">
                       {editingQuestion ? 'Modify Question' : 'Add Question Details'}
                     </h3>
-                    <button 
+                    <button
                       onClick={() => setIsQuestionFormOpen(false)}
                       className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition"
                     >

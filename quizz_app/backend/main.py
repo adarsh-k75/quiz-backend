@@ -71,6 +71,46 @@ async def lifespan(app: FastAPI):
                             opt_c="It monitors the call stack and execution queue to run asynchronous callbacks",
                             opt_d="It runs synchronous JavaScript code in a pool of worker threads",
                             correct="C"
+                        ),
+                        Question(
+                            text="Which HTML5 element is used to display a self-contained thematic content like illustrations, diagrams, or photos?",
+                            opt_a="picture",
+                            opt_b="figure",
+                            opt_c="image",
+                            opt_d="aside",
+                            correct="B"
+                        ),
+                        Question(
+                            text="What is the correct syntax in CSS to target all elements with the class name 'highlight'?",
+                            opt_a="#highlight",
+                            opt_b=".highlight",
+                            opt_c="highlight",
+                            opt_d="*highlight",
+                            correct="B"
+                        ),
+                        Question(
+                            text="Which SQL keyword is used to sort the result-set in ascending or descending order?",
+                            opt_a="SORT BY",
+                            opt_b="ORDER BY",
+                            opt_c="GROUP BY",
+                            opt_d="ALIGN BY",
+                            correct="B"
+                        ),
+                        Question(
+                            text="In JavaScript, what is the value of typeof null?",
+                            opt_a="object",
+                            opt_b="null",
+                            opt_c="undefined",
+                            opt_d="boolean",
+                            correct="A"
+                        ),
+                        Question(
+                            text="Which of the following is NOT a valid state in a Promise in JavaScript?",
+                            opt_a="pending",
+                            opt_b="fulfilled",
+                            opt_c="rejected",
+                            opt_d="processing",
+                            correct="D"
                         )
                     ]
                     session.add_all(seed_questions)

@@ -70,8 +70,9 @@ def run_tests():
             "seconds_left": 8.5
         })
     
+    test_name = f"Test Runner {int(time.time())}"
     submission_payload = {
-        "name": "Test Runner",
+        "name": test_name,
         "batch": "QA-2026",
         "answers": answers
     }
@@ -100,13 +101,13 @@ def run_tests():
         # Find if our test run exists in the leaderboard
         found = False
         for entry in leaderboard:
-            if entry.get("name") == "Test Runner" and entry.get("batch") == "QA-2026":
+            if entry.get("name") == test_name and entry.get("batch") == "QA-2026":
                 found = True
                 break
         if found:
-            print("    - [OK] Success: Found 'Test Runner' entry in the leaderboard list.")
+            print(f"    - [OK] Success: Found '{test_name}' entry in the leaderboard list.")
         else:
-            print("    - [WARN] Warning: 'Test Runner' entry not found in the leaderboard list.")
+            print(f"    - [WARN] Warning: '{test_name}' entry not found in the leaderboard list.")
     else:
         print(f"  [FAIL] Failed: Status {status}, Error: {leaderboard}")
         return False
