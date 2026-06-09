@@ -105,9 +105,6 @@ async def submit_quiz(submission_data: UserJoin, db: AsyncSession = Depends(get_
             # Constrain seconds_left to valid boundaries (0 to 10 seconds)
             sec_left = max(0.0, min(10.0, ans.seconds_left))
             
-            # Record time left
-            cumulative_time_left += sec_left
-            
             # Rules:
             # 1. If seconds_left == 0, score for that question is strictly 0.
             # 2. If correct, base weight: 100 points, Speed Multiplier: add (seconds_left * 10). Max score = 200.
@@ -117,6 +114,8 @@ async def submit_quiz(submission_data: UserJoin, db: AsyncSession = Depends(get_
             elif ans.selected_option == q.correct:
                 question_score = int(100 + (sec_left * 10))
                 question_score = min(200, question_score) # Cap at 200
+                # Record time left only for correct answers
+                cumulative_time_left += sec_left
             else:
                 question_score = 0
                 

@@ -400,11 +400,27 @@ export default function App() {
     setPhase('A');
   };
 
+  // Helper to compute standard competition ranks dynamically
+  const getRankedList = (list) => {
+    let currentRank = 1;
+    return list.map((row, index) => {
+      if (index > 0) {
+        const prevRow = list[index - 1];
+        if (row.score !== prevRow.score || row.speed_bonus !== prevRow.speed_bonus) {
+          currentRank = index + 1;
+        }
+      }
+      return { ...row, rank: currentRank };
+    });
+  };
+
+  const rankedLeaderboard = getRankedList(leaderboard);
+
   // Helper to extract podium items (Top 3)
-  const podiumList = leaderboard.slice(0, 3);
+  const podiumList = rankedLeaderboard.slice(0, 3);
 
   // Helper to extract rest of leaderboard
-  const remainingList = leaderboard.slice(3);
+  const remainingList = rankedLeaderboard.slice(3);
 
   // Loading Screen
   if (phase === 'LOADING') {
@@ -669,14 +685,20 @@ export default function App() {
                   {podiumList[1] && (
                     <div className="w-full sm:w-1/3 flex flex-col items-center order-2 sm:order-1">
                       <div className="relative group flex flex-col items-center">
-                        <div className="w-12 h-12 rounded-full border-2 border-slate-400 bg-slate-900 flex items-center justify-center mb-2 shadow-lg">
-                          <Medal className="w-6 h-6 text-slate-400" />
+                        <div className={`w-12 h-12 rounded-full border-2 ${podiumList[1].rank === 1 ? 'border-yellow-400 ring-4 ring-yellow-400/20' : 'border-slate-400'} bg-slate-900 flex items-center justify-center mb-2 shadow-lg`}>
+                          {podiumList[1].rank === 1 ? (
+                            <Trophy className="w-6 h-6 text-yellow-400" />
+                          ) : (
+                            <Medal className="w-6 h-6 text-slate-400" />
+                          )}
                         </div>
                         <span className="text-sm font-bold text-slate-200 max-w-[120px] truncate text-center">{podiumList[1].name}</span>
                         <span className="text-[10px] text-slate-400">{podiumList[1].batch}</span>
                       </div>
-                      <div className="w-full sm:w-[150px] bg-gradient-to-t from-slate-900 to-slate-800/80 border border-slate-700/40 rounded-t-xl h-24 sm:h-28 mt-3 flex flex-col justify-center items-center p-3 shadow-2xl">
-                        <span className="text-sm font-bold text-slate-400">Rank 2</span>
+                      <div className={`w-full sm:w-[150px] bg-gradient-to-t from-slate-900 to-slate-800/80 border ${podiumList[1].rank === 1 ? 'border-yellow-450/40 border-t-2 border-t-yellow-400' : 'border-slate-700/40'} rounded-t-xl h-24 sm:h-28 mt-3 flex flex-col justify-center items-center p-3 shadow-2xl`}>
+                        <span className={`text-sm font-bold ${podiumList[1].rank === 1 ? 'text-yellow-450' : 'text-slate-400'}`}>
+                          {podiumList[1].rank === 1 ? 'Champion' : `Rank ${podiumList[1].rank}`}
+                        </span>
                         <span className="text-lg font-extrabold text-white mt-1">{podiumList[1].score}</span>
                         <span className="text-[10px] text-slate-400 font-medium">({podiumList[1].speed_bonus.toFixed(1)}s left)</span>
                       </div>
@@ -706,14 +728,22 @@ export default function App() {
                   {podiumList[2] && (
                     <div className="w-full sm:w-1/3 flex flex-col items-center order-3 sm:order-3">
                       <div className="relative group flex flex-col items-center">
-                        <div className="w-12 h-12 rounded-full border-2 border-amber-600 bg-slate-900 flex items-center justify-center mb-2 shadow-lg">
-                          <Medal className="w-6 h-6 text-amber-600" />
+                        <div className={`w-12 h-12 rounded-full border-2 ${podiumList[2].rank === 1 ? 'border-yellow-400 ring-4 ring-yellow-400/20' : podiumList[2].rank === 2 ? 'border-slate-400' : 'border-amber-600'} bg-slate-900 flex items-center justify-center mb-2 shadow-lg`}>
+                          {podiumList[2].rank === 1 ? (
+                            <Trophy className="w-6 h-6 text-yellow-400" />
+                          ) : podiumList[2].rank === 2 ? (
+                            <Medal className="w-6 h-6 text-slate-400" />
+                          ) : (
+                            <Medal className="w-6 h-6 text-amber-600" />
+                          )}
                         </div>
                         <span className="text-sm font-bold text-slate-200 max-w-[120px] truncate text-center">{podiumList[2].name}</span>
                         <span className="text-[10px] text-slate-400">{podiumList[2].batch}</span>
                       </div>
-                      <div className="w-full sm:w-[150px] bg-gradient-to-t from-slate-900 to-slate-800/80 border border-slate-700/40 rounded-t-xl h-20 sm:h-24 mt-3 flex flex-col justify-center items-center p-3 shadow-2xl">
-                        <span className="text-sm font-bold text-amber-600">Rank 3</span>
+                      <div className={`w-full sm:w-[150px] bg-gradient-to-t from-slate-900 to-slate-800/80 border ${podiumList[2].rank === 1 ? 'border-yellow-450/40 border-t-2 border-t-yellow-400' : podiumList[2].rank === 2 ? 'border-slate-700/40' : 'border-amber-650/45 border-t border-t-amber-600'} rounded-t-xl h-20 sm:h-24 mt-3 flex flex-col justify-center items-center p-3 shadow-2xl`}>
+                        <span className={`text-sm font-bold ${podiumList[2].rank === 1 ? 'text-yellow-400' : podiumList[2].rank === 2 ? 'text-slate-400' : 'text-amber-600'}`}>
+                          {podiumList[2].rank === 1 ? 'Champion' : podiumList[2].rank === 2 ? 'Rank 2' : `Rank ${podiumList[2].rank}`}
+                        </span>
                         <span className="text-lg font-extrabold text-white mt-1">{podiumList[2].score}</span>
                         <span className="text-[10px] text-slate-400 font-medium">({podiumList[2].speed_bonus.toFixed(1)}s left)</span>
                       </div>
@@ -746,7 +776,7 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900">
-                    {leaderboard.map((row, index) => {
+                    {rankedLeaderboard.map((row, index) => {
                       const isCurrentUser = currentSubmission && row.id === currentSubmission.id;
 
                       return (
@@ -758,14 +788,14 @@ export default function App() {
                             }`}
                         >
                           <td className="py-3.5 px-4 text-sm font-semibold">
-                            {index === 0 ? (
+                            {row.rank === 1 ? (
                               <span className="text-yellow-400">#1</span>
-                            ) : index === 1 ? (
+                            ) : row.rank === 2 ? (
                               <span className="text-slate-400">#2</span>
-                            ) : index === 2 ? (
+                            ) : row.rank === 3 ? (
                               <span className="text-amber-600">#3</span>
                             ) : (
-                              `#${index + 1}`
+                              `#${row.rank}`
                             )}
                           </td>
                           <td className="py-3.5 px-4 text-sm">
