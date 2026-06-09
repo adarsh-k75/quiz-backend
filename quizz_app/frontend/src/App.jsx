@@ -205,6 +205,14 @@ export default function App() {
       // If they already finished, direct them to leaderboard and fetch it
       setName(savedName);
       setBatch(savedBatch);
+      const savedSubmission = sessionStorage.getItem('quiz_current_submission');
+      if (savedSubmission) {
+        try {
+          setCurrentSubmission(JSON.parse(savedSubmission));
+        } catch (e) {
+          console.error(e);
+        }
+      }
       fetchLeaderboard();
       setPhase('C');
     }
@@ -240,6 +248,14 @@ export default function App() {
     try {
       const response = await axios.get(`${API_BASE}/leaderboard`);
       setLeaderboard(response.data);
+      const savedSubmission = sessionStorage.getItem('quiz_current_submission');
+      if (savedSubmission) {
+        try {
+          setCurrentSubmission(JSON.parse(savedSubmission));
+        } catch (e) {
+          console.error(e);
+        }
+      }
     } catch (err) {
       console.error(err);
     }
@@ -320,6 +336,7 @@ export default function App() {
 
       // Save submission to highlight in the leaderboard
       setCurrentSubmission(response.data);
+      sessionStorage.setItem('quiz_current_submission', JSON.stringify(response.data));
 
       // Mark session as completed
       sessionStorage.setItem('quiz_status', 'completed');
@@ -373,6 +390,7 @@ export default function App() {
     sessionStorage.removeItem('quiz_status');
     sessionStorage.removeItem('quiz_username');
     sessionStorage.removeItem('quiz_batch');
+    sessionStorage.removeItem('quiz_current_submission');
     setName('');
     setBatch('');
     setQuestions([]);
