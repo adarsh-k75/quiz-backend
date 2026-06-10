@@ -72,6 +72,8 @@ export default function App() {
 
   const [isBulkFormOpen, setIsBulkFormOpen] = useState(false);
   const [bulkQuestions, setBulkQuestions] = useState(createEmptyQuestions());
+  const [bulkImportMode, setBulkImportMode] = useState('grid'); // 'grid' or 'json'
+  const [jsonPasteValue, setJsonPasteValue] = useState('');
 
   // Fetch questions for Admin Panel
   const fetchAdminQuestions = async (pass = adminPassword) => {
@@ -138,15 +140,17 @@ export default function App() {
 
   const handleSaveBulkQuestions = async (e) => {
     e.preventDefault();
-    const invalidIdx = bulkQuestions.findIndex(q => 
-      !q.text.trim() || !q.opt_a.trim() || !q.opt_b.trim() || !q.opt_c.trim() || !q.opt_d.trim()
-    );
-    if (invalidIdx !== -1) {
-      setAdminError(`Please fill in all fields for Question #${invalidIdx + 1}.`);
-      return;
-    }
-    try {
-      const payload = bulkQuestions.map(q => ({
+    let payload = [];
+
+    if (bulkImportMode === 'grid') {
+      const invalidIdx = bulkQuestions.findIndex(q => 
+        !q.text.trim() || !q.opt_a.trim() || !q.opt_b.trim() || !q.opt_c.trim() || !q.opt_d.trim()
+      );
+      if (invalidIdx !== -1) {
+        setAdminError(`Please fill in all fields for Question #${invalidIdx + 1}.`);
+        return;
+      }
+      payload = bulkQuestions.map(q => ({
         text: q.text.trim(),
         opt_a: q.opt_a.trim(),
         opt_b: q.opt_b.trim(),
@@ -154,12 +158,54 @@ export default function App() {
         opt_d: q.opt_d.trim(),
         correct: q.correct.trim()
       }));
+    } else {
+      if (!jsonPasteValue.trim()) {
+        setAdminError('Please paste a JSON array of questions first.');
+        return;
+      }
+      try {
+        const parsed = JSON.parse(jsonPasteValue);
+        if (!Array.isArray(parsed)) {
+          setAdminError('The pasted content must be a JSON array of questions.');
+          return;
+        }
+        if (parsed.length === 0) {
+          setAdminError('The JSON array is empty. Please add at least one question.');
+          return;
+        }
+        for (let i = 0; i < parsed.length; i++) {
+          const q = parsed[i];
+          if (!q.text || !q.opt_a || !q.opt_b || !q.opt_c || !q.opt_d || !q.correct) {
+            setAdminError(`Question #${i + 1} is missing one or more required fields (text, opt_a, opt_b, opt_c, opt_d, correct).`);
+            return;
+          }
+          if (!['A', 'B', 'C', 'D'].includes(q.correct.toUpperCase())) {
+            setAdminError(`Question #${i + 1} has an invalid correct option: "${q.correct}". Must be 'A', 'B', 'C', or 'D'.`);
+            return;
+          }
+        }
+        payload = parsed.map(q => ({
+          text: q.text.trim(),
+          opt_a: q.opt_a.trim(),
+          opt_b: q.opt_b.trim(),
+          opt_c: q.opt_c.trim(),
+          opt_d: q.opt_d.trim(),
+          correct: q.correct.toUpperCase().trim()
+        }));
+      } catch (err) {
+        setAdminError(`Invalid JSON format: ${err.message}`);
+        return;
+      }
+    }
+
+    try {
       await axios.post(`${API_BASE}/admin/questions/bulk`, payload, {
         headers: { 'X-Admin-Password': adminPassword }
       });
       await fetchAdminQuestions();
       setIsBulkFormOpen(false);
       setBulkQuestions(createEmptyQuestions());
+      setJsonPasteValue('');
       setAdminError('');
     } catch (err) {
       console.error(err);
@@ -1025,6 +1071,8 @@ export default function App() {
                 <button
                   onClick={() => {
                     setBulkQuestions(createEmptyQuestions());
+                    setJsonPasteValue('');
+                    setBulkImportMode('grid');
                     setAdminError('');
                     setIsBulkFormOpen(true);
                   }}
@@ -1251,25 +1299,58 @@ export default function App() {
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-3 border-b border-slate-800 gap-3">
                     <div>
                       <h3 className="text-lg font-extrabold text-white">
-                        Bulk Add Questions (10 at once)
+                        Bulk Add Questions
                       </h3>
-                      <p className="text-xs text-slate-400">Fill in details for exactly 10 questions to import them in batch.</p>
+                      <p className="text-xs text-slate-400">Add questions in batch using form fields or raw JSON paste.</p>
                     </div>
                     <div className="flex space-x-2 w-full sm:w-auto">
-                      <button
-                        type="button"
-                        onClick={handleAutoFillBulkQuestions}
-                        className="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/35 border border-indigo-500/30 text-indigo-300 rounded-lg text-xs font-bold transition"
-                      >
-                        Auto-Fill Sample Questions
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setBulkQuestions(createEmptyQuestions())}
-                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition"
-                      >
-                        Clear All
-                      </button>
+                      {bulkImportMode === 'grid' ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={handleAutoFillBulkQuestions}
+                            className="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/35 border border-indigo-500/30 text-indigo-300 rounded-lg text-xs font-bold transition"
+                          >
+                            Auto-Fill Sample Questions
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setBulkQuestions(createEmptyQuestions())}
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition"
+                          >
+                            Clear All
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              try {
+                                if (jsonPasteValue.trim()) {
+                                  setJsonPasteValue(JSON.stringify(JSON.parse(jsonPasteValue), null, 2));
+                                  setAdminError('');
+                                }
+                              } catch (e) {
+                                setAdminError(`Format failed: ${e.message}`);
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/35 border border-indigo-500/30 text-indigo-300 rounded-lg text-xs font-bold transition"
+                          >
+                            Format JSON
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setJsonPasteValue('');
+                              setAdminError('');
+                            }}
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition"
+                          >
+                            Clear JSON
+                          </button>
+                        </>
+                      )}
                       <button
                         onClick={() => setIsBulkFormOpen(false)}
                         className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
@@ -1277,6 +1358,32 @@ export default function App() {
                         <X className="w-5 h-5" />
                       </button>
                     </div>
+                  </div>
+
+                  {/* Tab Selector */}
+                  <div className="flex border-b border-slate-800 text-xs font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => { setAdminError(''); setBulkImportMode('grid'); }}
+                      className={`px-4 py-2 border-b-2 transition ${
+                        bulkImportMode === 'grid'
+                          ? 'border-indigo-500 text-indigo-400 font-extrabold'
+                          : 'border-transparent text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Multi-Form Grid (10 questions)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setAdminError(''); setBulkImportMode('json'); }}
+                      className={`px-4 py-2 border-b-2 transition ${
+                        bulkImportMode === 'json'
+                          ? 'border-indigo-500 text-indigo-400 font-extrabold'
+                          : 'border-transparent text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Paste Raw JSON
+                    </button>
                   </div>
 
                   {adminError && (
@@ -1287,117 +1394,152 @@ export default function App() {
                   )}
 
                   <form onSubmit={handleSaveBulkQuestions} className="flex-1 flex flex-col overflow-hidden">
-                    <div className="flex-1 overflow-y-auto pr-1 space-y-6 py-2">
-                      {bulkQuestions.map((q, idx) => (
-                        <div key={idx} className="p-4 rounded-xl bg-slate-950/40 border border-slate-800/80 space-y-4">
-                          <div className="flex items-center justify-between border-b border-slate-900 pb-2">
-                            <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">
-                              Question #{idx + 1}
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="md:col-span-3">
-                              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Question Text</label>
-                              <input
-                                type="text"
-                                required
-                                value={q.text}
-                                onChange={(e) => {
-                                  const updated = [...bulkQuestions];
-                                  updated[idx].text = e.target.value;
-                                  setBulkQuestions(updated);
-                                }}
-                                placeholder={`Enter question text #${idx + 1}...`}
-                                className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Option A</label>
-                              <input
-                                type="text"
-                                required
-                                value={q.opt_a}
-                                onChange={(e) => {
-                                  const updated = [...bulkQuestions];
-                                  updated[idx].opt_a = e.target.value;
-                                  setBulkQuestions(updated);
-                                }}
-                                placeholder="Option A description"
-                                className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Option B</label>
-                              <input
-                                type="text"
-                                required
-                                value={q.opt_b}
-                                onChange={(e) => {
-                                  const updated = [...bulkQuestions];
-                                  updated[idx].opt_b = e.target.value;
-                                  setBulkQuestions(updated);
-                                }}
-                                placeholder="Option B description"
-                                className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Option C</label>
-                              <input
-                                type="text"
-                                required
-                                value={q.opt_c}
-                                onChange={(e) => {
-                                  const updated = [...bulkQuestions];
-                                  updated[idx].opt_c = e.target.value;
-                                  setBulkQuestions(updated);
-                                }}
-                                placeholder="Option C description"
-                                className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Option D</label>
-                              <input
-                                type="text"
-                                required
-                                value={q.opt_d}
-                                onChange={(e) => {
-                                  const updated = [...bulkQuestions];
-                                  updated[idx].opt_d = e.target.value;
-                                  setBulkQuestions(updated);
-                                }}
-                                placeholder="Option D description"
-                                className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
-                              />
-                            </div>
-
-                            <div className="md:col-span-2">
-                              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Correct Option</label>
-                              <select
-                                value={q.correct}
-                                onChange={(e) => {
-                                  const updated = [...bulkQuestions];
-                                  updated[idx].correct = e.target.value;
-                                  setBulkQuestions(updated);
-                                }}
-                                className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white focus:outline-none focus:border-indigo-500 transition"
-                              >
-                                <option value="A">Option A</option>
-                                <option value="B">Option B</option>
-                                <option value="C">Option C</option>
-                                <option value="D">Option D</option>
-                              </select>
-                            </div>
-                          </div>
+                    {bulkImportMode === 'json' ? (
+                      <div className="flex-1 flex flex-col space-y-3 py-2 overflow-hidden">
+                        <div className="flex justify-between items-center text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                          <span>Paste JSON array of questions</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const placeholderJSON = [
+                                {
+                                  text: "Example: Which HTTP status code represents 'Unauthorized' access?",
+                                  opt_a: "400 Bad Request",
+                                  opt_b: "401 Unauthorized",
+                                  opt_c: "403 Forbidden",
+                                  opt_d: "404 Not Found",
+                                  correct: "B"
+                                }
+                              ];
+                              setJsonPasteValue(JSON.stringify(placeholderJSON, null, 2));
+                              setAdminError('');
+                            }}
+                            className="text-[10px] text-indigo-400 hover:underline normal-case font-bold"
+                          >
+                            Load Template JSON
+                          </button>
                         </div>
-                      ))}
-                    </div>
+                        <textarea
+                          required
+                          value={jsonPasteValue}
+                          onChange={(e) => setJsonPasteValue(e.target.value)}
+                          placeholder={`[\n  {\n    "text": "Question Text...",\n    "opt_a": "Option A",\n    "opt_b": "Option B",\n    "opt_c": "Option C",\n    "opt_d": "Option D",\n    "correct": "A"\n  }\n]`}
+                          className="w-full flex-1 px-4 py-3 text-xs font-mono rounded-xl bg-slate-950/80 border border-slate-800 text-slate-200 placeholder-slate-700 focus:outline-none focus:border-indigo-500 transition resize-none overflow-y-auto"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex-1 overflow-y-auto pr-1 space-y-6 py-2">
+                        {bulkQuestions.map((q, idx) => (
+                          <div key={idx} className="p-4 rounded-xl bg-slate-950/40 border border-slate-800/80 space-y-4">
+                            <div className="flex items-center justify-between border-b border-slate-900 pb-2">
+                              <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">
+                                Question #{idx + 1}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div className="md:col-span-3">
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Question Text</label>
+                                <input
+                                  type="text"
+                                  required
+                                  value={q.text}
+                                  onChange={(e) => {
+                                    const updated = [...bulkQuestions];
+                                    updated[idx].text = e.target.value;
+                                    setBulkQuestions(updated);
+                                  }}
+                                  placeholder={`Enter question text #${idx + 1}...`}
+                                  className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Option A</label>
+                                <input
+                                  type="text"
+                                  required
+                                  value={q.opt_a}
+                                  onChange={(e) => {
+                                    const updated = [...bulkQuestions];
+                                    updated[idx].opt_a = e.target.value;
+                                    setBulkQuestions(updated);
+                                  }}
+                                  placeholder="Option A description"
+                                  className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Option B</label>
+                                <input
+                                  type="text"
+                                  required
+                                  value={q.opt_b}
+                                  onChange={(e) => {
+                                    const updated = [...bulkQuestions];
+                                    updated[idx].opt_b = e.target.value;
+                                    setBulkQuestions(updated);
+                                  }}
+                                  placeholder="Option B description"
+                                  className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Option C</label>
+                                <input
+                                  type="text"
+                                  required
+                                  value={q.opt_c}
+                                  onChange={(e) => {
+                                    const updated = [...bulkQuestions];
+                                    updated[idx].opt_c = e.target.value;
+                                    setBulkQuestions(updated);
+                                  }}
+                                  placeholder="Option C description"
+                                  className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Option D</label>
+                                <input
+                                  type="text"
+                                  required
+                                  value={q.opt_d}
+                                  onChange={(e) => {
+                                    const updated = [...bulkQuestions];
+                                    updated[idx].opt_d = e.target.value;
+                                    setBulkQuestions(updated);
+                                  }}
+                                  placeholder="Option D description"
+                                  className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
+                                />
+                              </div>
+
+                              <div className="md:col-span-2">
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Correct Option</label>
+                                <select
+                                  value={q.correct}
+                                  onChange={(e) => {
+                                    const updated = [...bulkQuestions];
+                                    updated[idx].correct = e.target.value;
+                                    setBulkQuestions(updated);
+                                  }}
+                                  className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white focus:outline-none focus:border-indigo-500 transition"
+                                >
+                                  <option value="A">Option A</option>
+                                  <option value="B">Option B</option>
+                                  <option value="C">Option C</option>
+                                  <option value="D">Option D</option>
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     <div className="flex space-x-3 pt-3 border-t border-slate-800 text-xs font-bold mt-4">
                       <button
@@ -1411,7 +1553,7 @@ export default function App() {
                         type="submit"
                         className="w-1/2 py-2.5 bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white rounded-lg shadow-md transition"
                       >
-                        Submit All 10 Questions
+                        {bulkImportMode === 'grid' ? 'Submit All 10 Questions' : 'Submit Pasted JSON Questions'}
                       </button>
                     </div>
                   </form>
