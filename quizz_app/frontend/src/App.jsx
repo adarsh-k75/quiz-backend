@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000/api';
+const COOLDOWN_HOURS = 4; // Hours user is blocked after refreshing/exiting the quiz
 
 export default function App() {
   // App Phase States: 'A' (Gatekeeper), 'B' (Quiz), 'SUBMITTING', 'C' (Leaderboard), 'DISQUALIFIED', 'ERROR'
@@ -306,6 +307,9 @@ export default function App() {
     if (quizStatus === 'in_progress') {
       // User refreshed the page during the quiz! Mark as disqualified.
       sessionStorage.setItem('quiz_status', 'disqualified');
+      // Block user from taking the quiz again for COOLDOWN_HOURS
+      const blockUntil = Date.now() + COOLDOWN_HOURS * 60 * 60 * 1000;
+      localStorage.setItem('quiz_blocked_until', blockUntil.toString());
       setPhase('DISQUALIFIED');
     } else if (quizStatus === 'completed' && savedName && savedBatch) {
       // If they already finished, direct them to leaderboard and fetch it
@@ -321,6 +325,26 @@ export default function App() {
       }
       fetchLeaderboard();
       setPhase('C');
+    } else {
+      // Check if user is currently blocked by a cooldown
+      const blockedUntilStr = localStorage.getItem('quiz_blocked_until');
+      if (blockedUntilStr) {
+        const blockedUntil = parseInt(blockedUntilStr, 10);
+        if (Date.now() < blockedUntil) {
+          const timeLeftMs = blockedUntil - Date.now();
+          const hoursLeft = Math.floor(timeLeftMs / (1000 * 60 * 60));
+          const minutesLeft = Math.ceil((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60));
+          
+          let timeString = '';
+          if (hoursLeft > 0) {
+            timeString += `${hoursLeft}h `;
+          }
+          timeString += `${minutesLeft}m`;
+          setInputError(`Access temporarily locked. You are blocked from starting a new quiz for another ${timeString} due to a previous page refresh.`);
+        } else {
+          localStorage.removeItem('quiz_blocked_until');
+        }
+      }
     }
   }, []);
 
@@ -462,6 +486,28 @@ export default function App() {
     e.preventDefault();
     const alphanumericRegex = /^[a-zA-Z0-9 ]+$/;
 
+    // Check if user is currently blocked by a cooldown
+    const blockedUntilStr = localStorage.getItem('quiz_blocked_until');
+    if (blockedUntilStr) {
+      const blockedUntil = parseInt(blockedUntilStr, 10);
+      if (Date.now() < blockedUntil) {
+        const timeLeftMs = blockedUntil - Date.now();
+        const hoursLeft = Math.floor(timeLeftMs / (1000 * 60 * 60));
+        const minutesLeft = Math.ceil((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60));
+        
+        let timeString = '';
+        if (hoursLeft > 0) {
+          timeString += `${hoursLeft} hour${hoursLeft > 1 ? 's' : ''} and `;
+        }
+        timeString += `${minutesLeft} minute${minutesLeft > 1 ? 's' : ''}`;
+        
+        setInputError(`Access temporarily locked. You are blocked from starting a new quiz for another ${timeString} due to a previous page refresh.`);
+        return;
+      } else {
+        localStorage.removeItem('quiz_blocked_until');
+      }
+    }
+
     if (!name.trim() || !batch.trim()) {
       setInputError('Please fill in both Name and Batch fields.');
       return;
@@ -503,6 +549,30 @@ export default function App() {
     setAnswers([]);
     setCurrentQuestionIndex(0);
     setCurrentSubmission(null);
+
+    // Check block status when returning to home
+    const blockedUntilStr = localStorage.getItem('quiz_blocked_until');
+    if (blockedUntilStr) {
+      const blockedUntil = parseInt(blockedUntilStr, 10);
+      if (Date.now() < blockedUntil) {
+        const timeLeftMs = blockedUntil - Date.now();
+        const hoursLeft = Math.floor(timeLeftMs / (1000 * 60 * 60));
+        const minutesLeft = Math.ceil((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60));
+        
+        let timeString = '';
+        if (hoursLeft > 0) {
+          timeString += `${hoursLeft}h `;
+        }
+        timeString += `${minutesLeft}m`;
+        setInputError(`Access temporarily locked. You are blocked from starting a new quiz for another ${timeString} due to a previous page refresh.`);
+      } else {
+        localStorage.removeItem('quiz_blocked_until');
+        setInputError('');
+      }
+    } else {
+      setInputError('');
+    }
+
     setPhase('A');
   };
 
