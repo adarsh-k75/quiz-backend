@@ -60,6 +60,19 @@ export default function App() {
   const [newOptD, setNewOptD] = useState('');
   const [newCorrect, setNewCorrect] = useState('A');
 
+  // Bulk Panel State
+  const createEmptyQuestions = () => Array.from({ length: 10 }, () => ({
+    text: '',
+    opt_a: '',
+    opt_b: '',
+    opt_c: '',
+    opt_d: '',
+    correct: 'A'
+  }));
+
+  const [isBulkFormOpen, setIsBulkFormOpen] = useState(false);
+  const [bulkQuestions, setBulkQuestions] = useState(createEmptyQuestions());
+
   // Fetch questions for Admin Panel
   const fetchAdminQuestions = async (pass = adminPassword) => {
     try {
@@ -121,6 +134,53 @@ export default function App() {
       console.error(err);
       setAdminError(err.response?.data?.detail || 'Failed to save question.');
     }
+  };
+
+  const handleSaveBulkQuestions = async (e) => {
+    e.preventDefault();
+    const invalidIdx = bulkQuestions.findIndex(q => 
+      !q.text.trim() || !q.opt_a.trim() || !q.opt_b.trim() || !q.opt_c.trim() || !q.opt_d.trim()
+    );
+    if (invalidIdx !== -1) {
+      setAdminError(`Please fill in all fields for Question #${invalidIdx + 1}.`);
+      return;
+    }
+    try {
+      const payload = bulkQuestions.map(q => ({
+        text: q.text.trim(),
+        opt_a: q.opt_a.trim(),
+        opt_b: q.opt_b.trim(),
+        opt_c: q.opt_c.trim(),
+        opt_d: q.opt_d.trim(),
+        correct: q.correct.trim()
+      }));
+      await axios.post(`${API_BASE}/admin/questions/bulk`, payload, {
+        headers: { 'X-Admin-Password': adminPassword }
+      });
+      await fetchAdminQuestions();
+      setIsBulkFormOpen(false);
+      setBulkQuestions(createEmptyQuestions());
+      setAdminError('');
+    } catch (err) {
+      console.error(err);
+      setAdminError(err.response?.data?.detail || 'Failed to save bulk questions.');
+    }
+  };
+
+  const handleAutoFillBulkQuestions = () => {
+    const samples = [
+      { text: "Which HTTP status code represents 'Unauthorized' access?", opt_a: "400 Bad Request", opt_b: "401 Unauthorized", opt_c: "403 Forbidden", opt_d: "404 Not Found", correct: "B" },
+      { text: "What is the primary purpose of the 'defer' attribute in a <script> tag?", opt_a: "It executes asynchronously", opt_b: "It delays script execution until the HTML document is fully parsed", opt_c: "It blocks page rendering", opt_d: "It executes the script in a web worker thread", correct: "B" },
+      { text: "In CSS Flexbox, which property controls alignment along the main axis?", opt_a: "align-items", opt_b: "align-content", opt_c: "justify-content", opt_d: "flex-direction", correct: "C" },
+      { text: "Which React Hook is designed to execute side effects in a functional component?", opt_a: "useState", opt_b: "useMemo", opt_c: "useEffect", opt_d: "useCallback", correct: "C" },
+      { text: "What is the primary role of the Event Loop in the JavaScript runtime?", opt_a: "It executes DB operations", opt_b: "It manages memory allocation", opt_c: "It monitors call stack and queue", opt_d: "It runs synchronous code in workers", correct: "C" },
+      { text: "Which HTML5 element displays self-contained thematic content?", opt_a: "picture", opt_b: "figure", opt_c: "image", opt_d: "aside", correct: "B" },
+      { text: "What is the correct syntax in CSS to target elements with class 'highlight'?", opt_a: "#highlight", opt_b: ".highlight", opt_c: "highlight", opt_d: "*highlight", correct: "B" },
+      { text: "Which SQL keyword sorts the result-set in ascending or descending order?", opt_a: "SORT BY", opt_b: "ORDER BY", opt_c: "GROUP BY", opt_d: "ALIGN BY", correct: "B" },
+      { text: "In JavaScript, what is the value of typeof null?", opt_a: "object", opt_b: "null", opt_c: "undefined", opt_d: "boolean", correct: "A" },
+      { text: "Which of the following is NOT a valid state in a Promise in JavaScript?", opt_a: "pending", opt_b: "fulfilled", opt_c: "rejected", opt_d: "processing", correct: "D" }
+    ];
+    setBulkQuestions(samples);
   };
 
   // Delete a question
@@ -963,6 +1023,17 @@ export default function App() {
                   <span>New Question</span>
                 </button>
                 <button
+                  onClick={() => {
+                    setBulkQuestions(createEmptyQuestions());
+                    setAdminError('');
+                    setIsBulkFormOpen(true);
+                  }}
+                  className="flex-1 sm:flex-initial py-2.5 px-4 bg-violet-600 hover:bg-violet-700 text-white rounded-xl flex items-center justify-center space-x-1.5 transition"
+                >
+                  <Plus className="w-4 h-4 text-violet-300" />
+                  <span>Bulk Add (10)</span>
+                </button>
+                <button
                   onClick={handleResetQuestions}
                   className="flex-1 sm:flex-initial py-2.5 px-4 bg-amber-600/20 hover:bg-amber-600/35 text-amber-300 border border-amber-500/20 rounded-xl flex items-center justify-center space-x-1.5 transition"
                 >
@@ -1167,6 +1238,180 @@ export default function App() {
                         className="w-1/2 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-lg shadow-md transition"
                       >
                         Save Details
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {isBulkFormOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+                <div className="w-full max-w-4xl max-h-[90vh] p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl flex flex-col gap-4 animate-scale-in text-left overflow-hidden">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-3 border-b border-slate-800 gap-3">
+                    <div>
+                      <h3 className="text-lg font-extrabold text-white">
+                        Bulk Add Questions (10 at once)
+                      </h3>
+                      <p className="text-xs text-slate-400">Fill in details for exactly 10 questions to import them in batch.</p>
+                    </div>
+                    <div className="flex space-x-2 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={handleAutoFillBulkQuestions}
+                        className="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/35 border border-indigo-500/30 text-indigo-300 rounded-lg text-xs font-bold transition"
+                      >
+                        Auto-Fill Sample Questions
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBulkQuestions(createEmptyQuestions())}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition"
+                      >
+                        Clear All
+                      </button>
+                      <button
+                        onClick={() => setIsBulkFormOpen(false)}
+                        className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {adminError && (
+                    <div className="flex items-center space-x-2 text-xs text-rose-400 bg-rose-500/10 p-3 rounded-xl border border-rose-500/20">
+                      <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                      <span>{adminError}</span>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleSaveBulkQuestions} className="flex-1 flex flex-col overflow-hidden">
+                    <div className="flex-1 overflow-y-auto pr-1 space-y-6 py-2">
+                      {bulkQuestions.map((q, idx) => (
+                        <div key={idx} className="p-4 rounded-xl bg-slate-950/40 border border-slate-800/80 space-y-4">
+                          <div className="flex items-center justify-between border-b border-slate-900 pb-2">
+                            <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">
+                              Question #{idx + 1}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="md:col-span-3">
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Question Text</label>
+                              <input
+                                type="text"
+                                required
+                                value={q.text}
+                                onChange={(e) => {
+                                  const updated = [...bulkQuestions];
+                                  updated[idx].text = e.target.value;
+                                  setBulkQuestions(updated);
+                                }}
+                                placeholder={`Enter question text #${idx + 1}...`}
+                                className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Option A</label>
+                              <input
+                                type="text"
+                                required
+                                value={q.opt_a}
+                                onChange={(e) => {
+                                  const updated = [...bulkQuestions];
+                                  updated[idx].opt_a = e.target.value;
+                                  setBulkQuestions(updated);
+                                }}
+                                placeholder="Option A description"
+                                className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Option B</label>
+                              <input
+                                type="text"
+                                required
+                                value={q.opt_b}
+                                onChange={(e) => {
+                                  const updated = [...bulkQuestions];
+                                  updated[idx].opt_b = e.target.value;
+                                  setBulkQuestions(updated);
+                                }}
+                                placeholder="Option B description"
+                                className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Option C</label>
+                              <input
+                                type="text"
+                                required
+                                value={q.opt_c}
+                                onChange={(e) => {
+                                  const updated = [...bulkQuestions];
+                                  updated[idx].opt_c = e.target.value;
+                                  setBulkQuestions(updated);
+                                }}
+                                placeholder="Option C description"
+                                className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Option D</label>
+                              <input
+                                type="text"
+                                required
+                                value={q.opt_d}
+                                onChange={(e) => {
+                                  const updated = [...bulkQuestions];
+                                  updated[idx].opt_d = e.target.value;
+                                  setBulkQuestions(updated);
+                                }}
+                                placeholder="Option D description"
+                                className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
+                              />
+                            </div>
+
+                            <div className="md:col-span-2">
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Correct Option</label>
+                              <select
+                                value={q.correct}
+                                onChange={(e) => {
+                                  const updated = [...bulkQuestions];
+                                  updated[idx].correct = e.target.value;
+                                  setBulkQuestions(updated);
+                                }}
+                                className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950/60 border border-slate-800 text-white focus:outline-none focus:border-indigo-500 transition"
+                              >
+                                <option value="A">Option A</option>
+                                <option value="B">Option B</option>
+                                <option value="C">Option C</option>
+                                <option value="D">Option D</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex space-x-3 pt-3 border-t border-slate-800 text-xs font-bold mt-4">
+                      <button
+                        type="button"
+                        onClick={() => setIsBulkFormOpen(false)}
+                        className="w-1/2 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="w-1/2 py-2.5 bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white rounded-lg shadow-md transition"
+                      >
+                        Submit All 10 Questions
                       </button>
                     </div>
                   </form>

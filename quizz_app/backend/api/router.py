@@ -218,6 +218,38 @@ async def create_question(question_data: QuestionCreate, db: AsyncSession = Depe
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/admin/questions/bulk", response_model=List[AdminQuestionResponse], dependencies=[Depends(verify_admin)])
+async def create_questions_bulk(questions_data: List[QuestionCreate], db: AsyncSession = Depends(get_db)):
+    try:
+        new_questions = []
+        for q_data in questions_data:
+            correct_val = q_data.correct.upper().strip()
+            if correct_val not in ['A', 'B', 'C', 'D']:
+                raise HTTPException(status_code=400, detail=f"Correct option must be 'A', 'B', 'C', or 'D' for question: {q_data.text[:30]}...")
+            
+            new_q = Question(
+                text=q_data.text.strip(),
+                opt_a=q_data.opt_a.strip(),
+                opt_b=q_data.opt_b.strip(),
+                opt_c=q_data.opt_c.strip(),
+                opt_d=q_data.opt_d.strip(),
+                correct=correct_val
+            )
+            new_questions.append(new_q)
+            
+        if new_questions:
+            db.add_all(new_questions)
+            await db.commit()
+            for q in new_questions:
+                await db.refresh(q)
+                
+        return new_questions
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.put("/admin/questions/{question_id}", response_model=AdminQuestionResponse, dependencies=[Depends(verify_admin)])
 async def update_question(question_id: int, question_data: QuestionUpdate, db: AsyncSession = Depends(get_db)):
     try:
