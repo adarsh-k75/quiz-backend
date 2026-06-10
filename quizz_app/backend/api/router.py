@@ -238,6 +238,8 @@ async def create_questions_bulk(questions_data: List[QuestionCreate], db: AsyncS
             new_questions.append(new_q)
             
         if new_questions:
+            # Clear all existing questions first as requested
+            await db.execute(text("TRUNCATE TABLE questions RESTART IDENTITY CASCADE"))
             db.add_all(new_questions)
             await db.commit()
             for q in new_questions:
